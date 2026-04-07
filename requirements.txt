@@ -1,4 +1,6 @@
-gradio>=4.0
-matplotlib>=3.7
+gradio
+matplotlib
+numpy
+scikit-learn
 openai
 python-dotenv

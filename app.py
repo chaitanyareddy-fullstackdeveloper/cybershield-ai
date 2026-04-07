@@ -4,6 +4,8 @@ import random
 import time
 import json
 import os
+import numpy as np
+from sklearn.tree import DecisionTreeClassifier
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -17,7 +19,34 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL = os.getenv("MODEL_NAME")
 
 # ==============================
-# 🧠 AI Decision
+# 🧠 ML MODEL
+# ==============================
+
+def generate_training_data(n=500):
+    X, y = [], []
+
+    for _ in range(n):
+        failed = random.randint(0, 25)
+        spike = random.choice([0, 1])
+        rate = random.uniform(50, 800)
+
+        label = 1 if (failed > 10 or spike == 1 or rate > 400) else 0
+
+        X.append([failed, spike, rate])
+        y.append(label)
+
+    return np.array(X), np.array(y)
+
+X, y = generate_training_data()
+model = DecisionTreeClassifier()
+model.fit(X, y)
+
+def detect_attack_ml(state):
+    data = np.array([[state[0], int(state[1]), state[2]]])
+    return model.predict(data)[0] == 1
+
+# ==============================
+# 🤖 AI Decision
 # ==============================
 
 def ai_decision(state):
@@ -45,15 +74,13 @@ def ai_decision(state):
         action = response.choices[0].message.content.strip().lower()
         return action if action in ["allow", "block", "rate_limit"] else "allow"
 
-    except:
+    except Exception as e:
+        print("AI Error:", e)
         return "allow"
 
 # ==============================
-# Core Logic
+# ⚙️ Core Logic
 # ==============================
-
-def detect_attack(state):
-    return state[0] > 10 or state[1] or state[2] > 400
 
 def generate_random_state():
     return (
@@ -64,7 +91,7 @@ def generate_random_state():
 
 def process_state(state, history):
     action = ai_decision(state)
-    is_attack = detect_attack(state)
+    is_attack = detect_attack_ml(state)
 
     reward = 10 if (is_attack and action in ["block", "rate_limit"]) else (
         5 if (not is_attack and action == "allow") else -5
@@ -76,11 +103,16 @@ def process_state(state, history):
         "reward": reward
     })
 
-    history = history[-20:]
+    # keep only last 20 safely
+    if len(history) > 20:
+        history.pop(0)
 
     # Graph
+    rewards = [h["reward"] for h in history]
+
     plt.figure()
-    plt.bar(["Reward"], [reward])
+    plt.plot(rewards)
+    plt.title("Reward Trend")
     fig = plt.gcf()
     plt.close()
 
@@ -102,7 +134,7 @@ def process_state(state, history):
     return result, fig, history
 
 # ==============================
-# Manual Mode
+# 🧪 Manual Mode
 # ==============================
 
 def manual_mode(failed, spike, rate, history):
@@ -111,30 +143,18 @@ def manual_mode(failed, spike, rate, history):
     return result, graph, "Analysis Completed", history
 
 # ==============================
-# 🔴 STREAM CONTROL
+# 🔴 STREAM (FIXED)
 # ==============================
 
-def toggle_stream(is_streaming):
-    return not is_streaming, (
-        "Stop Live Stream" if not is_streaming else "Start Live Stream"
-    )
-
-def auto_stream(history, is_streaming):
-    while is_streaming:
+def auto_stream(history):
+    while True:
         state = generate_random_state()
         result, graph, history = process_state(state, history)
         yield result, graph, "Live Monitoring Running...", history
         time.sleep(1)
 
 # ==============================
-# Stop Stream
-# ==============================
-
-def stop_stream():
-    return "Live streaming stopped", "Start Live Stream"
-
-# ==============================
-# Controls
+# 🎛️ Controls
 # ==============================
 
 def clear_history():
@@ -147,14 +167,13 @@ def download_history(history):
     return path
 
 # ==============================
-# UI
+# 🎨 UI
 # ==============================
 
 with gr.Blocks() as demo:
     gr.Markdown("# 🛡️ CyberShield AI Dashboard")
 
     session_history = gr.State([])
-    is_streaming = gr.State(False)
 
     with gr.Row():
         with gr.Column():
@@ -179,23 +198,21 @@ with gr.Blocks() as demo:
     gr.Markdown("### Live Monitoring")
 
     stream_btn = gr.Button("Start Live Stream")
+    stop_btn = gr.Button("Stop Live Stream")
 
-    # Toggle Start/Stop
-    stream_btn.click(
-        toggle_stream,
-        inputs=[is_streaming],
-        outputs=[is_streaming, stream_btn]
-    ).then(
+    # Start streaming
+    stream_event = stream_btn.click(
         auto_stream,
-        inputs=[session_history, is_streaming],
+        inputs=[session_history],
         outputs=[output_text, output_graph, status, session_history]
     )
 
-    # Stop button logic
-    stream_btn.click(
-        stop_stream,
-        inputs=[],
-        outputs=[status, stream_btn]
+    # Stop streaming (correct way)
+    stop_btn.click(
+        None,
+        None,
+        None,
+        cancels=[stream_event]
     )
 
     # Controls
