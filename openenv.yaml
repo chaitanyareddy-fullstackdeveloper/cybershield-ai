@@ -1,4 +1,4 @@
-name: cyber-ai-firewall
+name: cybershield-ai
 tasks:
   - name: easy
     difficulty: easy
@@ -16,7 +16,7 @@ environment:
     type: discrete
     actions:
       - allow
-      - block
+      - block 
       - rate_limit
 
 endpoints:

@@ -69,7 +69,7 @@ We evaluated the `inference.py` using standard frontier models via the OpenAI st
 ### 1. Clone Repository
 ```bash
 git clone <repository-url>
-cd cyber-ai-firewall
+cd cybershield-ai
 ```
 
 ### 2. Environment Variables
@@ -106,8 +106,8 @@ openenv validate
 Build the evaluation container conforming to OpenEnv limits (2vCPU, 8GB Ram):
 
 ```bash
-docker build -t cyber-ai-firewall .
-docker run -e HF_TOKEN=$HF_TOKEN -p 7860:7860 cyber-ai-firewall
+docker build -t cybershield-ai .
+docker run -e HF_TOKEN=$HF_TOKEN -p 7860:7860 cybershield-ai
 ```
 
 ## Acknowledgements
