@@ -5,12 +5,12 @@ from typing import Optional, Any
 
 app = FastAPI()
 
-# Global state
+# --- Global State ---
 state = [0, 0, 0]
 step_counter = 0
 rewards_list = []
 
-# Request models
+# --- Request Models ---
 class ResetRequest(BaseModel):
     task_id: str
     seed: int
@@ -19,32 +19,37 @@ class StepInput(BaseModel):
     action: Optional[str] = None
 
 
+# --- Utility ---
 def _normalize_observation(value: Any):
-    """
-    Always return a simple 3-item list so OpenEnv gets a stable observation.
-    """
     if isinstance(value, list) and len(value) == 3:
         return value
     return [0, 0, 0]
 
 
-# OpenEnv reset: POST OK
-@app.api_route("/reset", methods=["POST", "GET"])
-def reset(req: ResetRequest = Body(...)):
+# =====================================================
+# 🔥 RESET ENDPOINT (STRICT REQUIRED FORMAT)
+# =====================================================
+@app.post("/reset")
+def reset(req: ResetRequest):
     global state, step_counter, rewards_list
 
     step_counter = 0
     rewards_list = []
+
+    # Initialize environment state
     state = [0, 0, 0]
 
     return {
-        "observation": state,
-        "info": {}
+        "task_id": req.task_id,
+        "seed": req.seed,
+        "observation": state
     }
 
 
-# OpenEnv step: POST OK
-@app.api_route("/step", methods=["POST", "GET"])
+# =====================================================
+# 🚀 STEP ENDPOINT
+# =====================================================
+@app.post("/step")
 def step(input_data: Optional[StepInput] = None):
     global state, step_counter, rewards_list
 
@@ -52,6 +57,7 @@ def step(input_data: Optional[StepInput] = None):
     if input_data and input_data.action:
         action = input_data.action
 
+    # Simulated environment logic
     if action == "block":
         state = [0, 1, 0]
         reward = 1.0
@@ -66,6 +72,7 @@ def step(input_data: Optional[StepInput] = None):
         done = False
 
     state = _normalize_observation(state)
+
     step_counter += 1
     rewards_list.append(reward)
 
@@ -77,14 +84,19 @@ def step(input_data: Optional[StepInput] = None):
     }
 
 
-# State endpoint: GET OK
-@app.api_route("/state", methods=["GET", "POST"])
+# =====================================================
+# 📊 STATE ENDPOINT
+# =====================================================
+@app.get("/state")
 def get_state():
     return {
         "state": state if isinstance(state, list) else [0, 0, 0]
     }
 
 
+# =====================================================
+# ▶️ RUN SERVER
+# =====================================================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)
